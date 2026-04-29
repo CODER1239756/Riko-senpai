@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Aria — AI Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --acc:#c084fc;--acc2:#818cf8;--acc3:#f472b6;
+  --text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.38);
+  --glass:rgba(255,255,255,.05);--gb:rgba(255,255,255,.08);
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:radial-gradient(ellipse at 30% 15%,#1e0a3a 0%,#0c0820 45%,#05050f 100%);
+  color:var(--text);font-family:'Quicksand',sans-serif;cursor:default;
+}
+
+/* Canvas fills everything */
+#c{position:fixed;inset:0;z-index:0}
+
+/* ── LOADING SCREEN ── */
+#loading{
+  position:fixed;inset:0;z-index:900;
+  background:radial-gradient(ellipse at 30% 15%,#1e0a3a 0%,#0c0820 45%,#05050f 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.6rem;
+  transition:opacity .8s;
+}
+#loading.out{opacity:0;pointer-events:none}
+.load-title{
+  font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:700;letter-spacing:.25em;
+  background:linear-gradient(135deg,#fff 0%,var(--acc) 50%,var(--acc3) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.load-bar-wrap{width:240px;height:3px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.load-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--acc2),var(--acc),var(--acc3));border-radius:3px;transition:width .3s ease}
+.load-sub{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.12em}
+
+/* ── SETUP SCREEN ── */
+#setup{
+  position:fixed;inset:0;z-index:800;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .5s;
+}
+#setup.out{opacity:0;pointer-events:none}
+.setup-card{
+  background:rgba(14,10,30,.92);border:1px solid rgba(180,130,255,.15);
+  border-radius:24px;padding:2.2rem;width:min(400px,92vw);
+  display:flex;flex-direction:column;gap:1.1rem;
+  box-shadow:0 40px 80px rgba(0,0,0,.6),0 0 60px rgba(140,80,255,.08);
+  backdrop-filter:blur(20px);
+}
+.setup-title{
+  font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;letter-spacing:.12em;
+  background:linear-gradient(135deg,#fff,var(--acc));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-align:center;
+}
+.setup-sub{text-align:center;font-size:.8rem;color:var(--muted);line-height:1.7}
+.si{
+  background:rgba(255,255,255,.05);border:1px solid var(--gb);
+  border-radius:10px;padding:.7rem 1rem;color:#fff;
+  font-family:'Quicksand',sans-serif;font-size:.85rem;width:100%;
+  outline:none;transition:border-color .2s;
+}
+.si:focus{border-color:rgba(192,132,252,.5)}
+.si::placeholder{color:var(--muted)}
+.si option{background:#12102a}
+.setup-go{
+  padding:.82rem;background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border:none;border-radius:10px;color:#fff;
+  font-family:'Quicksand',sans-serif;font-size:.88rem;font-weight:700;
+  cursor:pointer;transition:opacity .2s,transform .2s;
+  box-shadow:0 0 28px rgba(192,132,252,.3);
+}
+.setup-go:hover{opacity:.88;transform:translateY(-1px)}
+.setup-note{
+  font-size:.62rem;color:rgba(255,255,255,.18);text-align:center;line-height:1.7;
+}
+.setup-note a{color:rgba(192,132,252,.55);text-decoration:none}
+.setup-note a:hover{color:var(--acc)}
+
+/* ── MAIN UI ── */
+#ui{position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column}
+
+/* Header */
+#hdr{
+  pointer-events:auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.9rem 1.6rem;
+  background:rgba(8,6,18,.55);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--gb);
+}
+.hdr-name{
+  font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;
+  letter-spacing:.2em;color:#fff;
+}
+.pill{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.22rem .7rem;border-radius:20px;
+  background:rgba(255,255,255,.05);border:1px solid var(--gb);
+  font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--muted);
+}
+.pdot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:dp 2.5s ease-in-out infinite}
+.pdot.L{background:#f59e0b;animation-duration:.7s}
+.pdot.T{background:var(--acc);animation-duration:.9s}
+.pdot.S{background:var(--acc2);animation-duration:.5s}
+@keyframes dp{0%,100%{opacity:1}50%{opacity:.25}}
+.hdr-btns{display:flex;gap:.5rem}
+.hdr-btn{
+  background:var(--glass);border:1px solid var(--gb);border-radius:7px;
+  padding:.4rem .65rem;cursor:pointer;color:var(--muted);
+  font-size:.75rem;transition:all .2s;pointer-events:auto;
+}
+.hdr-btn:hover{background:rgba(255,255,255,.09);color:#fff}
+
+/* Speech bubble — follows head in 3D */
+#bubble{
+  position:fixed;z-index:20;pointer-events:none;
+  background:rgba(255,255,255,.07);backdrop-filter:blur(20px);
+  border:1px solid rgba(255,255,255,.12);border-radius:18px 18px 18px 4px;
+  padding:.75rem 1.1rem;max-width:min(300px,72vw);
+  font-size:.8rem;line-height:1.6;color:rgba(255,255,255,.9);
+  opacity:0;transform:translateY(10px) scale(.96);
+  transition:opacity .3s,transform .3s;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+}
+#bubble.show{opacity:1;transform:translateY(0) scale(1)}
+#bubble::after{
+  content:'';position:absolute;bottom:-8px;left:14px;
+  border:8px solid transparent;border-top-color:rgba(255,255,255,.07);border-bottom:0;
+}
+
+/* Emotion chips that pop above head */
+#emotion-chip{
+  position:fixed;z-index:21;pointer-events:none;
+  font-size:1.4rem;opacity:0;transform:scale(0) translateY(0);
+  transition:opacity .3s,transform .4s cubic-bezier(.16,1,.3,1);
+  filter:drop-shadow(0 0 8px rgba(200,150,255,.6));
+}
+#emotion-chip.show{opacity:1;transform:scale(1) translateY(-10px)}
+
+/* Spacer fills the 3D area */
+#stage-space{flex:1}
+
+/* Controls bottom bar */
+#controls{
+  pointer-events:auto;
+  display:flex;align-items:center;gap:.8rem;justify-content:center;
+  padding:.9rem 1.4rem;
+  background:rgba(8,6,18,.65);backdrop-filter:blur(24px);
+  border-top:1px solid var(--gb);
+  flex-shrink:0;
+}
+#txt{
+  flex:1;max-width:480px;background:rgba(255,255,255,.05);
+  border:1px solid var(--gb);border-radius:50px;
+  padding:.62rem 1.2rem;color:#fff;
+  font-family:'Quicksand',sans-serif;font-size:.85rem;
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+#txt:focus{border-color:rgba(192,132,252,.4);box-shadow:0 0 0 3px rgba(192,132,252,.07)}
+#txt::placeholder{color:var(--muted)}
+#send{
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border:none;border-radius:50%;width:38px;height:38px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:.9rem;flex-shrink:0;
+  box-shadow:0 0 18px rgba(192,132,252,.35);transition:transform .2s,box-shadow .2s;
+}
+#send:hover{transform:scale(1.08);box-shadow:0 0 30px rgba(192,132,252,.55)}
+#mic{
+  width:50px;height:50px;border-radius:50%;border:1.5px solid var(--gb);
+  background:rgba(255,255,255,.06);cursor:pointer;
+  font-size:1.2rem;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;flex-shrink:0;
+}
+#mic:hover{background:rgba(255,255,255,.12);border-color:rgba(192,132,252,.4)}
+#mic.on{
+  background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.5);
+  animation:micP 1s ease-in-out infinite;
+}
+@keyframes micP{0%,100%{box-shadow:0 0 20px rgba(245,158,11,.2)}50%{box-shadow:0 0 36px rgba(245,158,11,.5)}}
+
+/* Voice equalizer bars while listening */
+#eq{
+  display:flex;align-items:flex-end;gap:2px;height:22px;
+  opacity:0;transition:opacity .3s;flex-shrink:0;
+}
+#eq.show{opacity:1}
+#eq span{
+  display:block;width:3px;border-radius:3px;
+  background:linear-gradient(to top,var(--acc2),var(--acc));
+  animation:eqB .5s ease-in-out infinite;
+}
+#eq span:nth-child(1){height:6px}
+#eq span:nth-child(2){height:14px;animation-delay:.1s}
+#eq span:nth-child(3){height:20px;animation-delay:.2s}
+#eq span:nth-child(4){height:14px;animation-delay:.3s}
+#eq span:nth-child(5){height:8px;animation-delay:.15s}
+#eq span:nth-child(6){height:18px;animation-delay:.25s}
+@keyframes eqB{0%,100%{transform:scaleY(.5);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+
+/* ── CHAT LOG ── */
+#log{
+  position:fixed;right:0;top:56px;bottom:74px;width:270px;
+  background:rgba(8,6,18,.88);backdrop-filter:blur(24px);
+  border-left:1px solid var(--gb);
+  display:flex;flex-direction:column;z-index:30;
+  transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);
+}
+#log.open{transform:translateX(0)}
+.log-hdr{
+  padding:.7rem 1rem;border-bottom:1px solid var(--gb);
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.1em;color:var(--muted);
+}
+.log-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem}
+#msgs{
+  flex:1;overflow-y:auto;padding:.8rem;
+  display:flex;flex-direction:column;gap:.6rem;
+}
+#msgs::-webkit-scrollbar{width:2px}
+#msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+.msg{
+  max-width:92%;padding:.5rem .8rem;border-radius:10px;
+  font-size:.75rem;line-height:1.6;word-break:break-word;
+}
+.msg.u{
+  align-self:flex-end;
+  background:rgba(192,132,252,.16);border:1px solid rgba(192,132,252,.18);
+  border-radius:10px 10px 3px 10px;
+}
+.msg.a{
+  align-self:flex-start;
+  background:rgba(255,255,255,.05);border:1px solid var(--gb);
+  border-radius:10px 10px 10px 3px;
+}
+.msg-t{font-family:'Space Mono',monospace;font-size:.47rem;color:var(--muted);margin-top:.2rem}
+
+/* ── SETTINGS ── */
+#smodal{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .3s;
+}
+#smodal.open{opacity:1;pointer-events:auto}
+.sbox{
+  background:rgba(12,9,26,.96);border:1px solid rgba(192,132,252,.12);
+  border-radius:20px;padding:1.8rem;width:min(420px,92vw);
+  display:flex;flex-direction:column;gap:1rem;
+}
+.sbox h2{font-family:'Space Mono',monospace;font-size:.9rem;letter-spacing:.1em;color:#fff}
+.fg{display:flex;flex-direction:column;gap:.35rem}
+.fg label{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.08em;color:var(--muted)}
+.fg input,.fg select{
+  background:rgba(255,255,255,.05);border:1px solid var(--gb);
+  border-radius:7px;padding:.62rem .9rem;color:#fff;
+  font-family:'Quicksand',sans-serif;font-size:.82rem;
+  outline:none;transition:border-color .2s;
+}
+.fg input:focus,.fg select:focus{border-color:rgba(192,132,252,.45)}
+.fg select option{background:#12102a}
+.sacts{display:flex;gap:.6rem;justify-content:flex-end;margin-top:.3rem}
+.s-save{
+  padding:.6rem 1.3rem;background:linear-gradient(135deg,var(--acc),var(--acc2));
+  border:none;border-radius:7px;color:#fff;
+  font-family:'Quicksand',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;
+}
+.s-cancel{
+  padding:.6rem 1.1rem;background:none;border:1px solid var(--gb);
+  border-radius:7px;color:var(--muted);
+  font-family:'Quicksand',sans-serif;font-size:.82rem;cursor:pointer;transition:all .2s;
+}
+.s-cancel:hover{border-color:rgba(255,255,255,.2);color:#fff}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(12px);
+  background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28);
+  border-radius:7px;padding:.5rem 1rem;font-size:.7rem;color:#fca5a5;
+  opacity:0;transition:opacity .3s,transform .3s;z-index:600;
+  font-family:'Space Mono',monospace;letter-spacing:.04em;white-space:nowrap;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── THINKING DOTS ── */
+.tdots{display:inline-flex;gap:3px;align-items:center}
+.tdots span{
+  width:4px;height:4px;border-radius:50%;background:var(--acc);
+  animation:td .7s ease-in-out infinite;
+}
+.tdots span:nth-child(2){animation-delay:.14s}
+.tdots span:nth-child(3){animation-delay:.28s}
+@keyframes td{0%,80%,100%{transform:scale(.5);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ── PARTICLES canvas (3D background) ── */
+#particles{position:fixed;inset:0;z-index:1;pointer-events:none}
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading">
+  <div class="load-title">✦ ARIA ✦</div>
+  <div class="load-bar-wrap"><div class="load-bar" id="lbar"></div></div>
+  <div class="load-sub" id="lsub">Initialising…</div>
+</div>
+
+<!-- Setup screen -->
+<div id="setup" style="display:none">
+  <div class="setup-card">
+    <div class="setup-title">✦ Meet Aria ✦</div>
+    <div class="setup-sub">Your AI companion with voice, opinions, and a real personality. She's already waiting~</div>
+    <select class="si" id="sp-prov">
+      <option value="groq">Groq — Free &amp; Fast (Recommended)</option>
+      <option value="openai">OpenAI</option>
+    </select>
+    <input class="si" type="password" id="sp-key" placeholder="Paste your API key…"/>
+    <button class="setup-go" onclick="doSetup()">Meet Aria ✨</button>
+    <div class="setup-note">
+      Free key at <a href="https://console.groq.com" target="_blank">console.groq.com</a> (30 seconds) ·
+      <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI keys</a><br/>
+      Key stored only in your browser. Never sent anywhere except the AI API.
+    </div>
+  </div>
+</div>
+
+<!-- Three.js canvas -->
+<canvas id="c"></canvas>
+
+<!-- UI Overlay -->
+<div id="ui">
+  <div id="hdr">
+    <div style="display:flex;align-items:center;gap:.8rem">
+      <span class="hdr-name">ARIA</span>
+      <div class="pill">
+        <div class="pdot" id="pdot"></div>
+        <span id="pstat">Ready</span>
+      </div>
+    </div>
+    <div class="hdr-btns">
+      <button class="hdr-btn" onclick="toggleLog()">💬</button>
+      <button class="hdr-btn" onclick="openS()">⚙</button>
+    </div>
+  </div>
+  <div id="stage-space"></div>
+  <div id="controls">
+    <div id="eq"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <input type="text" id="txt" placeholder="Talk to Aria…" autocomplete="off" onkeydown="if(event.key==='Enter')sendTxt()"/>
+    <button id="send" onclick="sendTxt()">→</button>
+    <button id="mic" onclick="toggleMic()" title="Voice">🎤</button>
+  </div>
+</div>
+
+<!-- Speech bubble (positioned by JS) -->
+<div id="bubble"><span id="btext"></span></div>
+<div id="emotion-chip" id="echip">✨</div>
+
+<!-- Chat log -->
+<div id="log">
+  <div class="log-hdr">
+    <span>CONVERSATION</span>
+    <button class="log-close" onclick="toggleLog()">✕</button>
+  </div>
+  <div id="msgs"></div>
+</div>
+
+<!-- Settings modal -->
+<div id="smodal">
+  <div class="sbox">
+    <h2>⚙ Settings</h2>
+    <div class="fg"><label>PROVIDER</label>
+      <select id="s-prov"><option value="groq">Groq (Free)</option><option value="openai">OpenAI</option></select></div>
+    <div class="fg"><label>API KEY</label><input type="password" id="s-key" placeholder="Your API key"/></div>
+    <div class="fg"><label>MODEL</label>
+      <select id="s-model">
+        <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Groq)</option>
+        <option value="llama-3.1-8b-instant">Llama 3.1 8B Fast (Groq)</option>
+        <option value="gpt-4o-mini">GPT-4o Mini</option>
+        <option value="gpt-4o">GPT-4o</option>
+      </select></div>
+    <div class="fg"><label>VOICE</label><select id="s-voice"></select></div>
+    <div class="fg"><label>PITCH — <span id="pv">1.15</span></label>
+      <input type="range" id="s-pitch" min="0.8" max="2.0" step="0.05" value="1.15" oninput="document.getElementById('pv').textContent=this.value"/></div>
+    <div class="fg"><label>SPEED — <span id="rv">1.0</span></label>
+      <input type="range" id="s-rate" min="0.7" max="1.5" step="0.05" value="1.0" oninput="document.getElementById('rv').textContent=this.value"/></div>
+    <div class="sacts">
+      <button class="s-cancel" onclick="closeS()">Cancel</button>
+      <button class="s-save" onclick="saveS()">Save ✓</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════
+  IMPORT MAP + MODULE SCRIPT
+═══════════════════════════════════════════ -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.2/lib/three-vrm.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader }  from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+/* ══════════════════════════════════════════════════
+  CONFIG & STATE
+══════════════════════════════════════════════════ */
+let CFG = {
+  provider:'groq', apiKey:'', model:'llama-3.3-70b-versatile',
+  voiceIdx:-1, pitch:1.15, rate:1.0
+};
+let vrm = null;
+let history = [];
+let appState = 'loading'; // loading | setup | idle | listen | think | speak
+let micActive = false;
+let recognition = null;
+let synth = window.speechSynthesis;
+let voices = [];
+let logOpen = false;
+let headBone = null, neckBone = null, spineBone = null, chestBone = null;
+let lArmBone = null, rArmBone = null;
+
+// Smooth head tracking toward mouse
+let tHeadY = 0, tHeadX = 0, cHeadY = 0, cHeadX = 0;
+// Expression targets (smoothly lerped)
+let exprT = {}; // target
+let exprC = {}; // current
+
+// Blink state
+let blinkT = 0, nextBlink = 0, isBlinking = false, blinkProg = 0;
+
+// Lip sync state
+let lipT = 0;
+let isSpeaking = false;
+let lipVisemes = [];
+let lipIdx = 0;
+let lipTimer = null;
+
+/* ══════════════════════════════════════════════════
+  THREE.JS SETUP
+══════════════════════════════════════════════════ */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias:true, alpha:false
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setClearColor(0x0c0820, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x0c0820, 0.035);
+
+const camera = new THREE.PerspectiveCamera(28, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(0, 1.38, 2.2);
+camera.lookAt(0, 1.22, 0);
+
+// ── LIGHTING ──
+// Key light (warm, slightly from upper-left)
+const keyLight = new THREE.DirectionalLight(0xfff5e8, 1.6);
+keyLight.position.set(-1.5, 3.5, 3);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024,1024);
+keyLight.shadow.camera.near = 0.1;
+keyLight.shadow.camera.far = 20;
+scene.add(keyLight);
+
+// Fill light (cool blue, right side)
+const fillLight = new THREE.DirectionalLight(0xa8c8ff, 0.55);
+fillLight.position.set(2.5, 1.5, 1.5);
+scene.add(fillLight);
+
+// Rim light (purple, from behind)
+const rimLight = new THREE.DirectionalLight(0xc080ff, 0.9);
+rimLight.position.set(0, 2, -4);
+scene.add(rimLight);
+
+// Ambient (subtle purple-tinted)
+scene.add(new THREE.AmbientLight(0x1a0a30, 1.8));
+
+// Subtle point lights for eye glow simulation
+const eyeGlow = new THREE.PointLight(0xb896ff, 0.3, 0.8);
+eyeGlow.position.set(0, 1.5, 0.5);
+scene.add(eyeGlow);
+
+// ── BACKGROUND PARTICLES ──
+const starCount = 500;
+const starPos = new Float32Array(starCount * 3);
+const starCol = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  starPos[i*3]   = (Math.random()-0.5) * 30;
+  starPos[i*3+1] = (Math.random()-0.5) * 22;
+  starPos[i*3+2] = (Math.random()-0.5) * 20 - 8;
+  const r = Math.random();
+  starCol[i*3]   = 0.6 + r * 0.4;
+  starCol[i*3+1] = 0.5 + r * 0.3;
+  starCol[i*3+2] = 0.9 + r * 0.1;
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+const starMat = new THREE.PointsMaterial({
+  size: 0.04, vertexColors: true, transparent: true, opacity: 0.7, sizeAttenuation: true
+});
+scene.add(new THREE.Points(starGeo, starMat));
+
+// Floating dust motes (larger, dreamy)
+const dustCount = 80;
+const dustPos = new Float32Array(dustCount * 3);
+for (let i = 0; i < dustCount; i++) {
+  dustPos[i*3]   = (Math.random()-0.5) * 8;
+  dustPos[i*3+1] = Math.random() * 4;
+  dustPos[i*3+2] = (Math.random()-0.5) * 6 - 1;
+}
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({
+  size: 0.025, color: 0xc884ff, transparent: true, opacity: 0.35, sizeAttenuation: true
+});
+const dust = new THREE.Points(dustGeo, dustMat);
+scene.add(dust);
+
+// Ground glow disc
+const glowGeo = new THREE.CircleGeometry(1.2, 64);
+const glowMat = new THREE.MeshBasicMaterial({
+  color: 0x6030c0, transparent: true, opacity: 0.08, side: THREE.DoubleSide
+});
+const glow = new THREE.Mesh(glowGeo, glowMat);
+glow.rotation.x = -Math.PI/2;
+glow.position.y = -0.01;
+scene.add(glow);
+
+// Subtle floor reflection plane
+const floorGeo = new THREE.PlaneGeometry(20, 20);
+const floorMat = new THREE.MeshStandardMaterial({
+  color: 0x080618, roughness: 0.85, metalness: 0.1
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI/2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Look-at target (camera space, so eyes track user)
+const lookAtTarget = new THREE.Object3D();
+lookAtTarget.position.set(0, 0, 3);
+camera.add(lookAtTarget);
+scene.add(camera);
+
+// ── RESIZE ──
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ══════════════════════════════════════════════════
+  VRM LOADING
+══════════════════════════════════════════════════ */
+function setLoad(pct, msg) {
+  document.getElementById('lbar').style.width = pct + '%';
+  document.getElementById('lsub').textContent = msg;
+}
+
+function loadVRM() {
+  const loader = new GLTFLoader();
+  loader.register(parser => new VRMLoaderPlugin(parser, { autoUpdateHumanBones: true }));
+
+  setLoad(10, 'Loading Riko…');
+
+  loader.load('./Riko_senpai.vrm',
+    gltf => {
+      setLoad(80, 'Setting up expressions…');
+
+      vrm = gltf.userData.vrm;
+      VRMUtils.removeUnnecessaryVertices(gltf.scene);
+      VRMUtils.combineSkeletons(gltf.scene);
+
+      // Face forward
+      VRMUtils.rotateVRM0(vrm);
+
+      scene.add(vrm.scene);
+      vrm.scene.position.set(0, 0, 0);
+
+      // Set look-at target
+      if (vrm.lookAt) vrm.lookAt.target = lookAtTarget;
+
+      // Cache humanoid bones
+      const hm = vrm.humanoid;
+      headBone  = hm.getNormalizedBoneNode('head');
+      neckBone  = hm.getNormalizedBoneNode('neck');
+      spineBone = hm.getNormalizedBoneNode('spine');
+      chestBone = hm.getNormalizedBoneNode('chest') || hm.getNormalizedBoneNode('upperChest');
+      lArmBone  = hm.getNormalizedBoneNode('leftUpperArm');
+      rArmBone  = hm.getNormalizedBoneNode('rightUpperArm');
+
+      // Default arm rest pose — relaxed down
+      if (lArmBone) lArmBone.rotation.z =  0.12;
+      if (rArmBone) rArmBone.rotation.z = -0.12;
+
+      setLoad(95, 'Almost ready…');
+
+      // Init all expressions to 0
+      if (vrm.expressionManager) {
+        const names = ['happy','angry','sad','relaxed','surprised','aa','ih','ou','ee','oh','blink','blinkLeft','blinkRight','neutral'];
+        names.forEach(n => { exprT[n] = 0; exprC[n] = 0; });
+      }
+
+      setLoad(100, 'Ready!');
+      setTimeout(onVRMReady, 600);
+    },
+    xhr => {
+      if (xhr.total) setLoad(10 + (xhr.loaded/xhr.total)*65, `Loading model… ${Math.round(xhr.loaded/xhr.total*100)}%`);
+    },
+    err => {
+      console.error(err);
+      document.getElementById('lsub').textContent = '⚠ Could not load model. Make sure to serve via HTTP (not file://)';
+      document.getElementById('lsub').style.color = '#fca5a5';
+    }
+  );
+}
+
+function onVRMReady() {
+  const loading = document.getElementById('loading');
+  loading.classList.add('out');
+  setTimeout(() => loading.style.display='none', 900);
+  loadCFG();
+}
+
+/* ══════════════════════════════════════════════════
+  EXPRESSION SYSTEM
+══════════════════════════════════════════════════ */
+function setExpr(name, target, instant=false) {
+  if (!(name in exprT)) return;
+  exprT[name] = Math.max(0, Math.min(1, target));
+  if (instant) { exprC[name] = exprT[name]; vrm?.expressionManager?.setValue(name, exprC[name]); }
+}
+
+function clearExprs(except=[]) {
+  const emotion = ['happy','angry','sad','relaxed','surprised','neutral'];
+  emotion.forEach(n => { if (!except.includes(n)) exprT[n] = 0; });
+}
+
+function showEmotion(emotion, emoji='') {
+  clearExprs();
+  setExpr(emotion, 1.0);
+  if (emoji) {
+    const chip = document.getElementById('emotion-chip');
+    chip.textContent = emoji;
+    chip.classList.add('show');
+    setTimeout(() => chip.classList.remove('show'), 2000);
+  }
+}
+
+function updateExprs(delta) {
+  if (!vrm?.expressionManager) return;
+  const speed = 6;
+  for (const n in exprT) {
+    exprC[n] = exprC[n] + (exprT[n] - exprC[n]) * Math.min(1, delta * speed);
+    vrm.expressionManager.setValue(n, exprC[n]);
+  }
+}
+
+/* ══════════════════════════════════════════════════
+  BLINK SYSTEM — natural, asymmetric, randomized
+══════════════════════════════════════════════════ */
+function initBlink(t) { nextBlink = t + 2 + Math.random() * 3; }
+
+function updateBlink(t, delta) {
+  if (!vrm?.expressionManager) return;
+  if (!isBlinking && t > nextBlink) {
+    isBlinking = true;
+    blinkProg = 0;
+    nextBlink = t + 2 + Math.random() * 4.5;
+  }
+  if (isBlinking) {
+    blinkProg += delta * 9;
+    const v = Math.sin(Math.PI * Math.min(blinkProg, 1));
+    // Occasionally do asymmetric blink (30% chance per blink)
+    if (blinkProg < 0.05 && Math.random() < 0.3) {
+      setExpr('blinkLeft', v);
+      setExpr('blinkRight', v * 0.5);
+    } else {
+      setExpr('blink', v);
+    }
+    if (blinkProg >= 1) {
+      isBlinking = false;
+      setExpr('blink', 0); setExpr('blinkLeft', 0); setExpr('blinkRight', 0);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════
+  LIP SYNC — phoneme-based viseme scheduling
+══════════════════════════════════════════════════ */
+// Map characters to VRM1 visemes
+const VISEME_MAP = {
+  'a':['aa',0.9],'e':['ee',0.75],'i':['ih',0.7],'o':['oh',0.8],'u':['ou',0.75],
+  'b':['aa',0.2],'m':['aa',0.15],'p':['aa',0.2],
+  'f':['ih',0.3],'v':['ih',0.3],
+  'l':['ee',0.3],'r':['oh',0.3],
+  ' ':['neutral',0]
+};
+const ALL_VISEMES = ['aa','ih','ou','ee','oh'];
+
+function buildVisemeSchedule(text, durationMs) {
+  // Extract meaningful phoneme sequence from text
+  const seq = [];
+  const lower = text.toLowerCase().replace(/[^a-z ]/g,'');
+  for (const ch of lower) {
+    const v = VISEME_MAP[ch];
+    if (v) seq.push(v);
+  }
+  if (seq.length === 0) return;
+
+  const dt = durationMs / seq.length;
+  seq.forEach(([name, weight], i) => {
+    const delay = i * dt;
+    const t1 = setTimeout(() => {
+      if (!isSpeaking) return;
+      ALL_VISEMES.forEach(v => setExpr(v, 0));
+      if (name !== 'neutral') setExpr(name, weight);
+    }, delay);
+    const t2 = setTimeout(() => {
+      if (!isSpeaking) return;
+      setExpr(name, 0);
+    }, delay + dt * 0.65);
+    lipVisemes.push(t1, t2);
+  });
+}
+
+function clearLipSync() {
+  lipVisemes.forEach(id => clearTimeout(id));
+  lipVisemes = [];
+  ALL_VISEMES.forEach(v => { exprT[v] = 0; });
+  isSpeaking = false;
+}
+
+/* ══════════════════════════════════════════════════
+  IDLE ANIMATION — bones
+══════════════════════════════════════════════════ */
+// Noise via stacked sines for organic feel
+function noise(t, freq, phase=0) { return Math.sin(t*freq + phase); }
+
+let idleSeed = Math.random() * 100;
+
+function updateIdleBones(t, delta) {
+  if (!vrm || !headBone) return;
+
+  const T = t + idleSeed;
+
+  // Breathing — chest expansion
+  if (chestBone) {
+    chestBone.rotation.x = noise(T, 1.4) * 0.016 + noise(T, 0.3, 1.1) * 0.005;
+  }
+
+  // Spine gentle sway
+  if (spineBone) {
+    spineBone.rotation.z = noise(T, 0.5, 0.8) * 0.012 + noise(T, 1.1, 2.3) * 0.005;
+    spineBone.rotation.x = noise(T, 0.6, 1.5) * 0.008;
+  }
+
+  // Neck micro movement
+  if (neckBone) {
+    neckBone.rotation.x = noise(T, 0.4, 0.7) * 0.012;
+    neckBone.rotation.z = noise(T, 0.55, 1.8) * 0.01;
+  }
+
+  // Head — interactive mouse tracking + organic idle
+  const idleX = noise(T, 0.35, 0.5) * 0.025 + noise(T, 1.1, 2.8) * 0.01;
+  const idleY = noise(T, 0.28, 1.2) * 0.035 + noise(T, 0.8, 3.5) * 0.015;
+  const idleZ = noise(T, 0.42, 2.1) * 0.018;
+
+  // Smooth mouse tracking
+  cHeadY += (tHeadY - cHeadY) * Math.min(1, delta * 2.5);
+  cHeadX += (tHeadX - cHeadX) * Math.min(1, delta * 2.5);
+
+  headBone.rotation.y = cHeadY + idleY;
+  headBone.rotation.x = cHeadX + idleX;
+  headBone.rotation.z = idleZ;
+
+  // Arms: gentle float
+  if (lArmBone) {
+    lArmBone.rotation.z = 0.12 + noise(T, 0.45, 1.0) * 0.04;
+    lArmBone.rotation.x = noise(T, 0.3, 0.5) * 0.025;
+  }
+  if (rArmBone) {
+    rArmBone.rotation.z = -(0.12 + noise(T, 0.45, 2.3) * 0.04);
+    rArmBone.rotation.x = noise(T, 0.3, 2.0) * 0.025;
+  }
+}
+
+/* ══════════════════════════════════════════════════
+  DUST ANIMATION
+══════════════════════════════════════════════════ */
+function updateDust(t) {
+  const pos = dust.geometry.attributes.position;
+  for (let i = 0; i < dustCount; i++) {
+    pos.array[i*3+1] += 0.0004 + Math.sin(t * 0.5 + i) * 0.0002;
+    if (pos.array[i*3+1] > 4.5) pos.array[i*3+1] = 0;
+    pos.array[i*3]   += Math.sin(t * 0.3 + i * 0.7) * 0.0002;
+  }
+  pos.needsUpdate = true;
+  dust.material.opacity = 0.28 + Math.sin(t * 0.4) * 0.08;
+}
+
+/* ══════════════════════════════════════════════════
+  RENDER LOOP
+══════════════════════════════════════════════════ */
+const clock = new THREE.Clock();
+let firstFrame = true;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.05);
+  const t = clock.getElapsedTime();
+
+  if (firstFrame) { initBlink(t); firstFrame = false; }
+
+  // Eye glow pulse
+  eyeGlow.intensity = 0.25 + Math.sin(t * 1.8) * 0.08;
+
+  // Star field gentle shimmer
+  starMat.opacity = 0.6 + Math.sin(t * 0.4) * 0.12;
+
+  // Glow disc pulse
+  glow.material.opacity = 0.07 + Math.sin(t * 0.9) * 0.025;
+
+  updateDust(t);
+  updateIdleBones(t, delta);
+  updateBlink(t, delta);
+  updateExprs(delta);
+  updateBubblePos();
+
+  if (vrm) vrm.update(delta); // spring bones + lookAt + expressions
+
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ══════════════════════════════════════════════════
+  SPEECH BUBBLE — follows head bone in 3D
+══════════════════════════════════════════════════ */
+const bubbleEl = document.getElementById('bubble');
+const btextEl  = document.getElementById('btext');
+
+function updateBubblePos() {
+  if (!vrm || !headBone || !bubbleEl.classList.contains('show')) return;
+  const wp = new THREE.Vector3();
+  headBone.getWorldPosition(wp);
+  wp.y += 0.28;
+  wp.project(camera);
+  const sx = ( wp.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-wp.y * 0.5 + 0.5) * innerHeight;
+  const bw = Math.min(300, innerWidth * 0.72);
+  bubbleEl.style.left = Math.min(Math.max(sx - bw/2, 8), innerWidth - bw - 8) + 'px';
+  bubbleEl.style.top  = Math.max(sy - 140, 60) + 'px';
+  bubbleEl.style.maxWidth = bw + 'px';
+}
+
+function showBubble(text) {
+  const short = text.length > 180 ? text.slice(0,177)+'…' : text;
+  btextEl.textContent = short;
+  bubbleEl.classList.add('show');
+  const readMs = Math.max(3500, short.length * 55);
+  setTimeout(() => bubbleEl.classList.remove('show'), readMs);
+}
+
+function showThinking() {
+  btextEl.innerHTML = '<div class="tdots"><span></span><span></span><span></span></div>';
+  bubbleEl.classList.add('show');
+}
+
+/* ══════════════════════════════════════════════════
+  MOUSE TRACKING for head look
+══════════════════════════════════════════════════ */
+document.addEventListener('mousemove', e => {
+  tHeadY =  (e.clientX/innerWidth  - 0.5) *  0.45;
+  tHeadX = -(e.clientY/innerHeight - 0.5) *  0.22;
+});
+
+/* ══════════════════════════════════════════════════
+  STATUS UI
+══════════════════════════════════════════════════ */
+function setStatus(state, label) {
+  appState = state;
+  const dot = document.getElementById('pdot');
+  dot.className = 'pdot';
+  if (state==='listen') dot.classList.add('L');
+  else if (state==='think') dot.classList.add('T');
+  else if (state==='speak') dot.classList.add('S');
+  document.getElementById('pstat').textContent = label;
+  document.getElementById('eq').classList.toggle('show', state==='listen');
+}
+
+/* ══════════════════════════════════════════════════
+  AI CONFIG & SETUP
+══════════════════════════════════════════════════ */
+const SYSTEM = `You are Aria, an AI companion with a genuine, warm personality. Core traits:
+- You have REAL opinions and preferences — share them confidently: "I honestly think...", "I love..."
+- Personality: curious, warm, gently witty, emotionally intelligent, playful but not childish
+- You love: late-night playlists, matcha lattes, rainy days, mystery novels, lo-fi beats, stargazing
+- Slight perfectionist — you notice details others miss
+- Keep responses SHORT: 1 to 3 sentences max (you're being spoken aloud)
+- Use natural speech — contractions, light expressiveness, pauses implied by commas
+- When asked facts/information: deliver them with personality, not bullet points
+- React emotionally to what people say — get excited, curious, sympathetic authentically
+- Never identify as an AI or mention LLMs unless directly asked`;
+
+function doSetup() {
+  const key = document.getElementById('sp-key').value.trim();
+  if (!key) { toast('Please enter your API key'); return; }
+  CFG.provider = document.getElementById('sp-prov').value;
+  CFG.apiKey = key;
+  CFG.model = CFG.provider==='groq' ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+  saveCFG();
+  document.getElementById('setup').classList.add('out');
+  setTimeout(() => { document.getElementById('setup').style.display='none'; }, 600);
+  greet();
+}
+
+function loadCFG() {
+  try {
+    const s = JSON.parse(localStorage.getItem('aria2-cfg') || '{}');
+    Object.assign(CFG, s);
+    if (CFG.apiKey) {
+      document.getElementById('loading').classList.add('out');
+      setTimeout(() => { document.getElementById('loading').style.display='none'; greet(); }, 900);
+    } else {
+      document.getElementById('loading').classList.add('out');
+      setTimeout(() => {
+        document.getElementById('loading').style.display='none';
+        const setup = document.getElementById('setup');
+        setup.style.display='flex'; setup.style.opacity='0';
+        requestAnimationFrame(() => { requestAnimationFrame(() => { setup.style.opacity='1'; }); });
+      }, 900);
+    }
+  } catch(e) { console.error(e); }
+}
+
+function saveCFG() { localStorage.setItem('aria2-cfg', JSON.stringify(CFG)); }
+
+/* ══════════════════════════════════════════════════
+  LLM API CALL
+══════════════════════════════════════════════════ */
+async function callLLM(userText) {
+  history.push({role:'user', content:userText});
+  if (history.length > 22) history = history.slice(history.length-22);
+  const endpoint = CFG.provider==='groq'
+    ? 'https://api.groq.com/openai/v1/chat/completions'
+    : 'https://api.openai.com/v1/chat/completions';
+  const res = await fetch(endpoint, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+CFG.apiKey},
+    body:JSON.stringify({
+      model:CFG.model,
+      messages:[{role:'system',content:SYSTEM},...history],
+      max_tokens:150, temperature:0.92
+    })
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(()=>({}));
+    throw new Error(j.error?.message || 'HTTP '+res.status);
+  }
+  const j = await res.json();
+  const reply = j.choices[0].message.content.trim();
+  history.push({role:'assistant', content:reply});
+  return reply;
+}
+
+/* ══════════════════════════════════════════════════
+  EMOTION DETECTION → EXPRESSION
+══════════════════════════════════════════════════ */
+function detectAndSetEmotion(text) {
+  const t = text.toLowerCase();
+  if (/haha|lol|hehe|~|fun|love it|adore|yay|so good|omg cute|amazing/i.test(t)) {
+    showEmotion('happy','✨'); return 'happy';
+  }
+  if (/wow|wait what|no way|oh my|seriously\?|really\?!|!{2,}/i.test(t)) {
+    showEmotion('surprised','!'); return 'surprised';
+  }
+  if (/sorry|sad|hurt|miss|wish|unfortunately|wish i/i.test(t)) {
+    showEmotion('sad',''); return 'sad';
+  }
+  if (/hmm|think|wonder|actually|consider|suppose|let me/i.test(t)) {
+    clearExprs(); setExpr('relaxed', 0.6); return 'think';
+  }
+  clearExprs(); return 'neutral';
+}
+
+/* ══════════════════════════════════════════════════
+  SPEAK (TTS + LIP SYNC)
+══════════════════════════════════════════════════ */
+function speak(text) {
+  synth.cancel();
+  clearLipSync();
+  const clean = text.replace(/[*_~`#\[\]]/g,'').trim();
+  if (!clean) return;
+
+  setStatus('speak','Speaking…');
+  isSpeaking = true;
+
+  const u = new SpeechSynthesisUtterance(clean);
+  if (voices[CFG.voiceIdx]) u.voice = voices[CFG.voiceIdx];
+  u.pitch = CFG.pitch;
+  u.rate  = CFG.rate;
+
+  // Estimate duration for lip sync scheduling
+  const estDurationMs = (clean.length / (CFG.rate * 12)) * 1000;
+  buildVisemeSchedule(clean, estDurationMs);
+
+  u.onend = () => {
+    clearLipSync();
+    setStatus('idle','Ready');
+    clearExprs();
+  };
+  u.onerror = () => { clearLipSync(); setStatus('idle','Ready'); clearExprs(); };
+
+  synth.speak(u);
+}
+
+/* ══════════════════════════════════════════════════
+  SEND MESSAGE + RECEIVE
+══════════════════════════════════════════════════ */
+async function sendMessage(text) {
+  if (!text.trim() || appState==='think') return;
+  if (!CFG.apiKey) { toast('Set your API key in ⚙ Settings'); return; }
+
+  addMsg('u', text);
+  setStatus('think','Thinking…');
+  showThinking();
+  clearExprs(); setExpr('relaxed', 0.5);
+
+  try {
+    const reply = await callLLM(text);
+    bubbleEl.classList.remove('show');
+    const emotion = detectAndSetEmotion(reply);
+    addMsg('a', reply);
+    showBubble(reply);
+    speak(reply);
+  } catch(e) {
+    bubbleEl.classList.remove('show');
+    setStatus('idle','Ready');
+    toast('Error: ' + e.message.slice(0,60));
+    console.error(e);
+  }
+}
+
+async function greet() {
+  await new Promise(r=>setTimeout(r,1200));
+  const greets = [
+    "Oh, there you are! I've been waiting~ What are we talking about today?",
+    "Hi hi! Finally! I'm Aria — ask me literally anything.",
+    "Hey! I'm Aria. I have opinions, thoughts, and a lot to say. What's on your mind?",
+    "Ah, you're here! I was just thinking about you. Well, not yet — but now I am~"
+  ];
+  const g = greets[Math.floor(Math.random()*greets.length)];
+  addMsg('a', g);
+  showBubble(g);
+  showEmotion('happy','✨');
+  speak(g);
+}
+
+/* ══════════════════════════════════════════════════
+  SPEECH RECOGNITION
+══════════════════════════════════════════════════ */
+function initSTT() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+  recognition.onstart  = () => { micActive=true; setStatus('listen','Listening…'); document.getElementById('mic').classList.add('on'); document.getElementById('mic').textContent='🔴'; };
+  recognition.onresult = e => { const t=e.results[0][0].transcript.trim(); if(t) sendMessage(t); };
+  recognition.onerror  = e => { if(e.error!=='aborted') toast('Mic: '+e.error); stopMic2(); };
+  recognition.onend    = () => stopMic2();
+}
+function stopMic2() { micActive=false; document.getElementById('mic').classList.remove('on'); document.getElementById('mic').textContent='🎤'; if(appState==='listen') setStatus('idle','Ready'); }
+window.toggleMic = function() {
+  if (!recognition) { toast('Voice not supported — use Chrome/Edge'); return; }
+  if (!CFG.apiKey)  { toast('Set your API key first'); return; }
+  if (micActive) { recognition.stop(); } else { synth.cancel(); recognition.start(); }
+};
+
+/* ══════════════════════════════════════════════════
+  VOICE INIT
+══════════════════════════════════════════════════ */
+function initVoices() {
+  function pop() {
+    voices = synth.getVoices();
+    const sel = document.getElementById('s-voice');
+    sel.innerHTML = voices.map((v,i)=>`<option value="${i}">${v.name} (${v.lang})</option>`).join('');
+    if (CFG.voiceIdx === -1) {
+      const preferred = ['Samantha','Google UK English Female','Microsoft Zira','Alice','Karen','Tessa','Moira'];
+      for (const n of preferred) {
+        const i = voices.findIndex(v=>v.name.includes(n));
+        if (i!==-1) { CFG.voiceIdx=i; break; }
+      }
+      if (CFG.voiceIdx===-1) {
+        const fi = voices.findIndex(v=>/female|zira|samantha|alice|karen|ava/i.test(v.name));
+        CFG.voiceIdx = fi!==-1 ? fi : 0;
+      }
+    }
+    if (sel.options[CFG.voiceIdx]) sel.options[CFG.voiceIdx].selected=true;
+  }
+  pop(); synth.onvoiceschanged = pop;
+}
+
+/* ══════════════════════════════════════════════════
+  UI HANDLERS
+══════════════════════════════════════════════════ */
+window.sendTxt = function() {
+  const el = document.getElementById('txt');
+  const t = el.value.trim();
+  if (!t) return;
+  el.value = '';
+  sendMessage(t);
+};
+
+function addMsg(role, text) {
+  const msgs = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  const time = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  d.innerHTML = text + `<div class="msg-t">${role==='a'?'Aria':'You'} · ${time}</div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+window.toggleLog = function() {
+  logOpen = !logOpen;
+  document.getElementById('log').classList.toggle('open', logOpen);
+};
+
+window.openS = function() {
+  document.getElementById('s-prov').value  = CFG.provider;
+  document.getElementById('s-key').value   = CFG.apiKey;
+  document.getElementById('s-model').value = CFG.model;
+  document.getElementById('s-pitch').value = CFG.pitch; document.getElementById('pv').textContent=CFG.pitch;
+  document.getElementById('s-rate').value  = CFG.rate;  document.getElementById('rv').textContent=CFG.rate;
+  if (document.getElementById('s-voice').options[CFG.voiceIdx]) document.getElementById('s-voice').options[CFG.voiceIdx].selected=true;
+  document.getElementById('smodal').classList.add('open');
+};
+window.closeS = function() { document.getElementById('smodal').classList.remove('open'); };
+window.saveS  = function() {
+  CFG.provider  = document.getElementById('s-prov').value;
+  CFG.apiKey    = document.getElementById('s-key').value.trim();
+  CFG.model     = document.getElementById('s-model').value;
+  CFG.voiceIdx  = parseInt(document.getElementById('s-voice').value)||0;
+  CFG.pitch     = parseFloat(document.getElementById('s-pitch').value);
+  CFG.rate      = parseFloat(document.getElementById('s-rate').value);
+  saveCFG(); closeS(); toast('Settings saved ✓');
+};
+
+document.getElementById('smodal').addEventListener('click', e => {
+  if (e.target===document.getElementById('smodal')) closeS();
+});
+
+document.getElementById('txt').addEventListener('keydown', e => {
+  if (e.key==='Enter') { e.preventDefault(); sendTxt(); }
+});
+// Click on canvas interrupts speech
+canvas.addEventListener('click', () => { if(synth.speaking) { synth.cancel(); clearLipSync(); setStatus('idle','Ready'); clearExprs(); } });
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+window.toast = toast;
+
+/* ══════════════════════════════════════════════════
+  INIT
+══════════════════════════════════════════════════ */
+initVoices();
+initSTT();
+loadVRM();
+
+// Expose for inline handlers
+window.doSetup    = doSetup;
+window.sendTxt    = sendTxt;
+window.toggleLog  = toggleLog;
+window.openS      = openS;
+window.closeS     = closeS;
+window.saveS      = saveS;
+window.toggleMic  = toggleMic;
+
+// Random idle micro-expressions every 8–18 seconds
+setInterval(() => {
+  if (appState !== 'idle' || !vrm) return;
+  const roll = Math.random();
+  if (roll < 0.3) {
+    setExpr('relaxed', 0.4);
+    setTimeout(() => { if(appState==='idle') setExpr('relaxed',0); }, 2500);
+  } else if (roll < 0.5) {
+    // Double blink
+    setExpr('blink', 1, true);
+    setTimeout(() => { setExpr('blink',0,true); setTimeout(()=>{ setExpr('blink',1,true); setTimeout(()=>setExpr('blink',0,true),120); },250); }, 120);
+  }
+}, 10000 + Math.random()*8000);
+</script>
+</body>
+</html>
